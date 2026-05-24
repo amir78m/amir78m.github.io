@@ -56,26 +56,32 @@
     
     let currentParent = "ROOT";
 
-    async def loadDirectory(path) {
+    function loadDirectory(path) {
         const wrapper = document.getElementById('explorerWrapper');
         wrapper.innerHTML = '<div class="loading">⏳ در حال بارگذاری پوشه...</div>';
         
-        try {
-            const response = await fetch(`${API_BASE_URL}/api/get_dir`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ path: path })
-            });
-            const data = await response.json();
-            
+        fetch(API_BASE_URL + "/api/get_dir", {
+            method: 'POST',
+            mode: 'cors', // فعال کردن حالت صریح کورس برای تلگرام
+            headers: { 
+                'Content-Type': 'application/json',
+                'ngrok-skip-browser-warning': 'true'
+            },
+            body: JSON.stringify({ path: path })
+        })
+        .then(function(response) {
+            return response.json();
+        })
+        .then(function(data) {
             if(data.status === "success") {
                 renderUI(data);
             } else {
-                wrapper.innerHTML = `<div class="loading">❌ خطا: ${data.message}</div>`;
+                wrapper.innerHTML = '<div class="loading">❌ خطا: ' + data.message + '</div>';
             }
-        } catch (error) {
-            wrapper.innerHTML = `<div class="loading">❌ عدم اتصال به پایتون سیستم.<br>مطمئن شوید پایتون روشن است و پورت باز است.</div>`;
-        }
+        })
+        .catch(function(error) {
+            wrapper.innerHTML = '<div class="loading">❌ عدم اتصال به سیستم.<br>کد خطا: ' + error.message + '</div>';
+        });
     }
 
     function renderUI(data) {
