@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>مدیریت فایل پیشرفته</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <style>
+        body { font-family: Tahoma, sans-serif; background: #f4f4f9; margin: 0; padding: 15px; color: #333; }
+        .header { font-weight: bold; margin-bottom: 15px; color: #0088cc; font-size: 16px; }
+        .item-list { background: #fff; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); padding: 5px; }
+        .item { display: flex; align-items: center; padding: 12px; border-bottom: 1px solid #eee; cursor: pointer; }
+        .item:last-child { border-bottom: none; }
+        .item:hover { background: #f9f9f9; }
+        .icon { font-size: 20px; margin-left: 10px; }
+        .name { flex-grow: 1; font-size: 14px; }
+        .size { font-size: 12px; color: #888; }
+        .back-btn { background: #0088cc; color: white; padding: 8px 15px; border: none; border-radius: 5px; cursor: pointer; margin-bottom: 10px; width: 100%; font-size: 14px; }
+    </style>
+</head>
+<body>
+
+    <button class="back-btn" id="backBtn" onclick="goBack()">🔙 بازگشت به پوشه قبلی</button>
+    <div class="header" id="currentPath">مسیر: در حال بارگذاری...</div>
+    <div class="item-list" id="explorer"></div>
+
+    <script>
+        // مقداردهی اولیه وب‌اپ تلگرام
+        const tg = window.Telegram.WebApp;
+        tg.expand(); // باز شدن وب‌اپ به صورت تمام صفحه
+
+        let currentPath = "ROOT";
+
+        // توابعی برای ارتباط با بک‌اند پایتون از طریق تلگرام
+        function requestData(path) {
+            // فرستادن درخواست به پایتون از طریق ربات
+            tg.sendData(JSON.stringify({ action: "get_dir", path: path }));
+        }
+
+        // دریافت داده‌ها از تلگرام (وقتی پایتون پاسخ را فرستاد)
+        // در نسخه وب‌اپ، پایتون می‌تواند از طریق متد ادیت پیام داده‌ها را به این صفحه تزریق کند
+        // برای این نمونه، داده‌ها را به صورت مستقیم از لوکال‌پد شبیه‌سازی می‌کنیم یا از API می‌گیریم
+        
+        function renderItems(path, items) {
+            document.getElementById('currentPath').innerText = "مسیر: " + path;
+            const container = document.getElementById('explorer');
+            container.innerHTML = "";
+
+            items.forEach(item => {
+                const div = document.createElement('div');
+                div.className = 'item';
+                div.onclick = () => {
+                    if (item.is_dir) {
+                        requestData(item.path);
+                    } else {
+                        // اگر فایل بود، دستور دانلود صادر شود
+                        tg.sendData(JSON.stringify({ action: "download", path: item.path }));
+                        tg.close(); // بستن وب‌اپ بعد از درخواست دانلود
+                    }
+                };
+
+                const icon = item.is_dir ? "📁" : "📄";
+                div.innerHTML = `
+                    <span class="icon">${icon}</span>
+                    <span class="name">${item.name}</span>
+                    <span class="size">${item.size || ''}</span>
+                `;
+                container.appendChild(div);
+            });
+        }
+        
+        // درخواست اولیه برای ریشه حافظه
+        requestData("ROOT");
+    </script>
+</body>
+</html>
