@@ -3,74 +3,154 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>مدیریت فایل پیشرفته</title>
+    <title>فایل اکسپلورر حرفه‌ای</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <style>
-        body { font-family: Tahoma, sans-serif; background: #f4f4f9; margin: 0; padding: 15px; color: #333; }
-        .header { font-weight: bold; margin-bottom: 15px; color: #0088cc; font-size: 16px; }
-        .item-list { background: #fff; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); padding: 5px; }
-        .item { display: flex; align-items: center; padding: 12px; border-bottom: 1px solid #eee; cursor: pointer; }
-        .item:last-child { border-bottom: none; }
-        .item:hover { background: #f9f9f9; }
-        .icon { font-size: 20px; margin-left: 10px; }
-        .name { flex-grow: 1; font-size: 14px; }
-        .size { font-size: 12px; color: #888; }
-        .back-btn { background: #0088cc; color: white; padding: 8px 15px; border: none; border-radius: 5px; cursor: pointer; margin-bottom: 10px; width: 100%; font-size: 14px; }
+        :root {
+            --tg-theme-bg-color: #f5f6fa;
+            --tg-theme-text-color: #2f3640;
+            --tg-theme-button-color: #00a8ff;
+            --tg-theme-button-text-color: #ffffff;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background: var(--tg-theme-bg-color);
+            color: var(--tg-theme-text-color);
+            margin: 0; padding: 12px;
+            user-select: none;
+        }
+        .app-container {
+            max-width: 600px; margin: 0 auto;
+        }
+        .path-bar {
+            background: #fff; padding: 12px; border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+            font-size: 13px; font-weight: bold;
+            margin-bottom: 12px; display: flex; align-items: center;
+            word-break: break-all; border-left: 4px solid var(--tg-theme-button-color);
+        }
+        .action-card {
+            background: #fff; border-radius: 14px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.04);
+            padding: 6px; display: flex; flex-direction: column; gap: 2px;
+        }
+        .item {
+            display: flex; align-items: center; padding: 14px 10px;
+            border-radius: 10px; transition: all 0.2s ease; cursor: pointer;
+        }
+        .item:active {
+            background: rgba(0, 168, 255, 0.1);
+            transform: scale(0.99);
+        }
+        .icon {
+            font-size: 24px; margin-left: 14px;
+            display: flex; align-items: center; justify-content: center;
+        }
+        .details {
+            display: flex; flex-direction: column; flex-grow: 1;
+        }
+        .name {
+            font-size: 14px; font-weight: 500; color: #2f3640;
+            max-width: 220px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        }
+        .size {
+            font-size: 11px; color: #9c88ff; margin-top: 3px;
+        }
+        .arrow {
+            color: #dcdde1; font-size: 14px;
+        }
+        .btn-back {
+            background: #fff; border: 1px solid #dcdde1; color: #333;
+            padding: 10px; border-radius: 10px; width: 100%;
+            font-weight: bold; font-size: 13px; margin-bottom: 10px;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.02); display: none;
+        }
+        .empty-state {
+            text-align: center; padding: 40px 20px; color: #a4b0be; font-size: 14px;
+        }
     </style>
 </head>
 <body>
 
-    <button class="back-btn" id="backBtn" onclick="goBack()">🔙 بازگشت به پوشه قبلی</button>
-    <div class="header" id="currentPath">مسیر: در حال بارگذاری...</div>
-    <div class="item-list" id="explorer"></div>
+<div class="app-container">
+    <button class="btn-back" id="backBtn">🔙 بازگشت به پوشه قبلی</button>
+    <div class="path-bar" id="pathDisplay">مسیر: در حال دریافت اطلاعات ریشه...</div>
+    <div class="action-card" id="explorerWrapper">
+        <div class="empty-state">لطفاً برای بارگذاری دایرکتوری، یک پیام حاوی مسیر ارسال کنید یا ربات را استارت بزنید.</div>
+    </div>
+</div>
 
-    <script>
-        // مقداردهی اولیه وب‌اپ تلگرام
-        const tg = window.Telegram.WebApp;
-        tg.expand(); // باز شدن وب‌اپ به صورت تمام صفحه
+<script>
+    const tg = window.Telegram.WebApp;
+    tg.expand();
+    tg.ready();
 
-        let currentPath = "ROOT";
+    let parentPath = "ROOT";
 
-        // توابعی برای ارتباط با بک‌اند پایتون از طریق تلگرام
-        function requestData(path) {
-            // فرستادن درخواست به پایتون از طریق ربات
-            tg.sendData(JSON.stringify({ action: "get_dir", path: path }));
+    // ساختار جدید رندر کردن دایرکتوری‌ها
+    function updateExplorer(currentPath, isRoot, items) {
+        const wrapper = document.getElementById('explorerWrapper');
+        const pathDisplay = document.getElementById('pathDisplay');
+        const backBtn = document.getElementById('backBtn');
+
+        pathDisplay.innerText = "📂 " + currentPath;
+        wrapper.innerHTML = "";
+
+        if (isRoot) {
+            backBtn.style.display = "none";
+        } else {
+            backBtn.style.display = "block";
+            backBtn.onclick = () => {
+                tg.sendData("get_dir:" + parentPath);
+                tg.close();
+            };
         }
 
-        // دریافت داده‌ها از تلگرام (وقتی پایتون پاسخ را فرستاد)
-        // در نسخه وب‌اپ، پایتون می‌تواند از طریق متد ادیت پیام داده‌ها را به این صفحه تزریق کند
-        // برای این نمونه، داده‌ها را به صورت مستقیم از لوکال‌پد شبیه‌سازی می‌کنیم یا از API می‌گیریم
-        
-        function renderItems(path, items) {
-            document.getElementById('currentPath').innerText = "مسیر: " + path;
-            const container = document.getElementById('explorer');
-            container.innerHTML = "";
-
-            items.forEach(item => {
-                const div = document.createElement('div');
-                div.className = 'item';
-                div.onclick = () => {
-                    if (item.is_dir) {
-                        requestData(item.path);
-                    } else {
-                        // اگر فایل بود، دستور دانلود صادر شود
-                        tg.sendData(JSON.stringify({ action: "download", path: item.path }));
-                        tg.close(); // بستن وب‌اپ بعد از درخواست دانلود
-                    }
-                };
-
-                const icon = item.is_dir ? "📁" : "📄";
-                div.innerHTML = `
-                    <span class="icon">${icon}</span>
-                    <span class="name">${item.name}</span>
-                    <span class="size">${item.size || ''}</span>
-                `;
-                container.appendChild(div);
-            });
+        if (items.length === 0) {
+            wrapper.innerHTML = '<div class="empty-state">این پوشه خالی است 💨</div>';
+            return;
         }
-        
-        // درخواست اولیه برای ریشه حافظه
-        requestData("ROOT");
-    </script>
+
+        items.forEach(item => {
+            const row = document.createElement('div');
+            row.className = 'item';
+            
+            row.onclick = () => {
+                if (item.is_dir) {
+                    // ارسال درخواست دایرکتوری جدید در قالب پیام متنی با سیستم امن
+                    tg.sendData("get_dir:" + item.path);
+                } else {
+                    // فرستادن کامند دانلود فایل اصلی
+                    tg.sendData("download:" + item.path);
+                }
+                tg.close();
+            };
+
+            const iconEmoji = item.is_dir ? "📁" : "📄";
+            
+            row.innerHTML = `
+                <div class="icon">${iconEmoji}</div>
+                <div class="details">
+                    <div class="name">${item.name}</div>
+                    <div class="size">${item.is_dir ? 'پوشه سیستمی' : item.size}</div>
+                </div>
+                <div class="arrow">${item.is_dir ? '◀' : '📥'}</div>
+            `;
+            wrapper.appendChild(row);
+        });
+    }
+
+    // تلگرام یک متغیر سراسری دارد که وقتی ربات در چت اطلاعات ارسال می‌کند می‌توان آن را مانیتور کرد
+    // اما برای پایداری ۱۰۰ درصدی، پس از کلیک شما، وب‌اپ دستور متنی ارسال کرده و بسته می‌شود 
+    // و پیام جدید حاوی دکمه مجدد وب‌اپ با دیتای بروز شده لود می‌شود.
+    
+    // درخواست اولیه
+    // برای لود اولیه پوشه ریشه به محض باز شدن لینک مستقیم:
+    tg.MainButton.setText("بارگذاری پوشه ریشه سیستم").show().onClick(() => {
+        tg.sendData("get_dir:ROOT");
+        tg.close();
+    });
+
+</script>
 </body>
 </html>
