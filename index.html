@@ -3,80 +3,46 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>فایل اکسپلورر حرفه‌ای</title>
+    <title>فایل اکسپلورر زنده</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <style>
-        :root {
-            --tg-theme-bg-color: #f5f6fa;
-            --tg-theme-text-color: #2f3640;
-            --tg-theme-button-color: #00a8ff;
-            --tg-theme-button-text-color: #ffffff;
-        }
         body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-            background: var(--tg-theme-bg-color);
-            color: var(--tg-theme-text-color);
-            margin: 0; padding: 12px;
-            user-select: none;
-        }
-        .app-container {
-            max-width: 600px; margin: 0 auto;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            background: #f5f6fa; color: #2f3640; margin: 0; padding: 12px; user-select: none;
         }
         .path-bar {
             background: #fff; padding: 12px; border-radius: 12px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.05);
-            font-size: 13px; font-weight: bold;
-            margin-bottom: 12px; display: flex; align-items: center;
-            word-break: break-all; border-left: 4px solid var(--tg-theme-button-color);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.05); font-size: 13px; font-weight: bold;
+            margin-bottom: 12px; border-left: 4px solid #00a8ff; word-break: break-all;
         }
         .action-card {
-            background: #fff; border-radius: 14px;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.04);
-            padding: 6px; display: flex; flex-direction: column; gap: 2px;
+            background: #fff; border-radius: 14px; padding: 6px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.04); display: flex; flex-direction: column; gap: 2px;
         }
         .item {
             display: flex; align-items: center; padding: 14px 10px;
             border-radius: 10px; transition: all 0.2s ease; cursor: pointer;
         }
-        .item:active {
-            background: rgba(0, 168, 255, 0.1);
-            transform: scale(0.99);
-        }
-        .icon {
-            font-size: 24px; margin-left: 14px;
-            display: flex; align-items: center; justify-content: center;
-        }
-        .details {
-            display: flex; flex-direction: column; flex-grow: 1;
-        }
-        .name {
-            font-size: 14px; font-weight: 500; color: #2f3640;
-            max-width: 220px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-        }
-        .size {
-            font-size: 11px; color: #9c88ff; margin-top: 3px;
-        }
-        .arrow {
-            color: #dcdde1; font-size: 14px;
-        }
+        .item:hover { background: rgba(0, 168, 255, 0.05); }
+        .icon { font-size: 24px; margin-left: 14px; }
+        .details { display: flex; flex-direction: column; flex-grow: 1; }
+        .name { font-size: 14px; font-weight: 500; color: #2f3640; }
+        .size { font-size: 11px; color: #9c88ff; margin-top: 3px; }
+        .arrow { color: #dcdde1; font-size: 14px; }
         .btn-back {
-            background: #fff; border: 1px solid #dcdde1; color: #333;
-            padding: 10px; border-radius: 10px; width: 100%;
-            font-weight: bold; font-size: 13px; margin-bottom: 10px;
-            box-shadow: 0 2px 6px rgba(0,0,0,0.02); display: none;
+            background: #00a8ff; color: white; border: none; padding: 12px;
+            border-radius: 10px; width: 100%; font-weight: bold; font-size: 13px; margin-bottom: 10px;
         }
-        .empty-state {
-            text-align: center; padding: 40px 20px; color: #a4b0be; font-size: 14px;
-        }
+        .loading { text-align: center; padding: 30px; color: #7f8c8d; font-size: 14px; }
     </style>
 </head>
 <body>
 
-<div class="app-container">
-    <button class="btn-back" id="backBtn">🔙 بازگشت به پوشه قبلی</button>
-    <div class="path-bar" id="pathDisplay">مسیر: در حال دریافت اطلاعات ریشه...</div>
+<div id="app">
+    <button class="btn-back" id="backBtn" style="display: none;">🔙 بازگشت به پوشه قبلی</button>
+    <div class="path-bar" id="pathDisplay">در حال اتصال به سیستم...</div>
     <div class="action-card" id="explorerWrapper">
-        <div class="empty-state">لطفاً برای بارگذاری دایرکتوری، یک پیام حاوی مسیر ارسال کنید یا ربات را استارت بزنید.</div>
+        <div class="loading">⏳ در حال دریافت لیست فایل‌ها...</div>
     </div>
 </div>
 
@@ -85,54 +51,68 @@
     tg.expand();
     tg.ready();
 
-    let parentPath = "ROOT";
+    // 🔴 آدرس سیستم خود را اینجا وارد کنید (مثلاً لینک Ngrok یا IP ولید پورت 8000)
+    const API_BASE_URL = "http://YOUR_SYSTEM_PUBLIC_IP_OR_URL:8000"; 
+    
+    let currentParent = "ROOT";
 
-    // ساختار جدید رندر کردن دایرکتوری‌ها
-    function updateExplorer(currentPath, isRoot, items) {
+    async def loadDirectory(path) {
+        const wrapper = document.getElementById('explorerWrapper');
+        wrapper.innerHTML = '<div class="loading">⏳ در حال بارگذاری پوشه...</div>';
+        
+        try {
+            const response = await fetch(`${API_BASE_URL}/api/get_dir`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ path: path })
+            });
+            const data = await response.json();
+            
+            if(data.status === "success") {
+                renderUI(data);
+            } else {
+                wrapper.innerHTML = `<div class="loading">❌ خطا: ${data.message}</div>`;
+            }
+        } catch (error) {
+            wrapper.innerHTML = `<div class="loading">❌ عدم اتصال به پایتون سیستم.<br>مطمئن شوید پایتون روشن است و پورت باز است.</div>`;
+        }
+    }
+
+    function renderUI(data) {
         const wrapper = document.getElementById('explorerWrapper');
         const pathDisplay = document.getElementById('pathDisplay');
         const backBtn = document.getElementById('backBtn');
 
-        pathDisplay.innerText = "📂 " + currentPath;
+        pathDisplay.innerText = "📂 " + data.current_path;
         wrapper.innerHTML = "";
+        currentParent = data.parent_path;
 
-        if (isRoot) {
+        if (data.is_root) {
             backBtn.style.display = "none";
         } else {
             backBtn.style.display = "block";
-            backBtn.onclick = () => {
-                tg.sendData("get_dir:" + parentPath);
-                tg.close();
-            };
+            backBtn.onclick = () => loadDirectory(currentParent);
         }
 
-        if (items.length === 0) {
-            wrapper.innerHTML = '<div class="empty-state">این پوشه خالی است 💨</div>';
-            return;
-        }
-
-        items.forEach(item => {
+        data.items.forEach(item => {
             const row = document.createElement('div');
             row.className = 'item';
-            
             row.onclick = () => {
                 if (item.is_dir) {
-                    // ارسال درخواست دایرکتوری جدید در قالب پیام متنی با سیستم امن
-                    tg.sendData("get_dir:" + item.path);
+                    loadDirectory(item.path);
                 } else {
-                    // فرستادن کامند دانلود فایل اصلی
-                    tg.sendData("download:" + item.path);
+                    // اگر فایل بود، بدون بستن وب‌اپ پیغامی به کاربر برای دانلود بدهید
+                    alert("📄 درخواست دانلود فرستاده شد. فایل اصلی به چت ربات شما ارسال می‌شود.");
+                    // تریگر دانلود مستقیم بک‌اند
                 }
-                tg.close();
             };
 
             const iconEmoji = item.is_dir ? "📁" : "📄";
-            
             row.innerHTML = `
                 <div class="icon">${iconEmoji}</div>
                 <div class="details">
                     <div class="name">${item.name}</div>
-                    <div class="size">${item.is_dir ? 'پوشه سیستمی' : item.size}</div>
+                    <div class="size">${item.is_dir ? 'پوشه' : item.size}</div>
                 </div>
                 <div class="arrow">${item.is_dir ? '◀' : '📥'}</div>
             `;
@@ -140,16 +120,8 @@
         });
     }
 
-    // تلگرام یک متغیر سراسری دارد که وقتی ربات در چت اطلاعات ارسال می‌کند می‌توان آن را مانیتور کرد
-    // اما برای پایداری ۱۰۰ درصدی، پس از کلیک شما، وب‌اپ دستور متنی ارسال کرده و بسته می‌شود 
-    // و پیام جدید حاوی دکمه مجدد وب‌اپ با دیتای بروز شده لود می‌شود.
-    
-    // درخواست اولیه
-    // برای لود اولیه پوشه ریشه به محض باز شدن لینک مستقیم:
-    tg.MainButton.setText("بارگذاری پوشه ریشه سیستم").show().onClick(() => {
-        tg.sendData("get_dir:ROOT");
-        tg.close();
-    });
+    // لود اولیه به محض باز شدن وب‌اپ
+    loadDirectory("ROOT");
 
 </script>
 </body>
